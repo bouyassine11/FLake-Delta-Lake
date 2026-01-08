@@ -11,16 +11,10 @@ import numpy as np
 from datetime import datetime, timedelta
 import os
 
+# Spark imports
+from pyspark.sql import SparkSession
+
 # Delta Lake imports
-from delta.tables import DeltaTable
-from pyspark.sql import SparkSession
-
-from pyspark.sql import SparkSession
-from delta import configure_spark_with_delta_pip
-import streamlit as st
-
-from pyspark.sql import SparkSession
-import streamlit as st
 
 @st.cache_resource
 def init_spark():
@@ -45,15 +39,33 @@ def load_silver_data(symbol=None, hours_back=24):
     try:
         spark = init_spark()
         df = spark.read.format("delta").load("/app/storage/silver_stock")
-        
+
         if symbol and symbol != "All":
             df = df.filter(df.symbol == symbol)
+
+        # Convert to pandas first
+        pdf = df.toPandas()
         
-        # Get recent data
-        cutoff_time = datetime.now() - timedelta(hours=hours_back)
-        df = df.filter(df.timestamp >= cutoff_time)
+        # Ensure timestamp column exists
+        if 'timestamp' not in pdf.columns:
+            st.error("No timestamp column found in silver data")
+            return pd.DataFrame()
         
-        return df.toPandas()
+        # Convert timestamp to datetime64[ns] safely
+        try:
+            # Convert to string first to avoid datetime64 dtype issues
+            pdf['timestamp'] = pd.to_datetime(pdf['timestamp'].astype(str), errors='coerce', utc=True)
+            # Ensure it's datetime64[ns]
+            pdf['timestamp'] = pdf['timestamp'].astype('datetime64[ns]')
+        except Exception as e:
+            st.error(f"Failed to convert timestamp: {e}")
+            return pd.DataFrame()
+
+        # Get recent data - filter by timestamp (handle NaT values)
+        cutoff_time = pd.Timestamp(datetime.now() - timedelta(hours=hours_back), tz='UTC')
+        pdf = pdf[pdf['timestamp'] >= cutoff_time].dropna(subset=['timestamp'])
+
+        return pdf
     except Exception as e:
         st.error(f"Error loading silver data: {e}")
         return pd.DataFrame()
