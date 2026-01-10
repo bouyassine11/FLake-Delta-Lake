@@ -252,9 +252,9 @@ docker-compose up --build
 
 This project was built as a collaborative school project by:
 
-- **[Anas Roukhmi]**  
-- **[Yassine Bouyahia]**
-- **[Abdelkrim Rekbi]** 
+- **Anas Roukhmi**  
+- **Yassine Bouyahia**
+- **Abdelkrim Rekbi** 
 
 ## 📚 Learning Outcomes
 
